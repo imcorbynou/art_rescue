@@ -1,0 +1,48 @@
+name: Publish Art Rescue
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag containing ArtRescue-WebGL-1080.zip
+        required: true
+        default: v1.0.0
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download the exported game
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/game-release" "$RUNNER_TEMP/game-site"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'ArtRescue-WebGL-1080.zip' --dir "$RUNNER_TEMP/game-release"
+          unzip -q "$RUNNER_TEMP/game-release/ArtRescue-WebGL-1080.zip" -d "$RUNNER_TEMP/game-site"
+          test -f "$RUNNER_TEMP/game-site/index.html"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the playable website
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/game-site
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
